@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-serif: 'Fraunces', Georgia, serif;
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    
+    --color-ink: #1C1B19;
+    --color-ink-surface: #242220;
+    --color-ink-border: #383430;
+    --color-parchment: #F0EBE1;
+    --color-parchment-card: #E8E2D7;
+    --color-parchment-border: #D8D0C3;
+    --color-copper: #B8834A;
+    --color-copper-hover: #9E6E3B;
+    --color-rust: #A8432F;
+    --color-sage: #6B7A5E;
+    --color-slate-served: #3A3732;
+  }
+
+  body {
+    background-color: var(--color-ink);
+    color: var(--color-parchment);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, .font-serif {
+    font-family: var(--font-serif);
+  }
+
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+}
+
+/* Custom Palette Utility Classes */
+.bg-ink { background-color: #1C1B19; }
+.bg-ink-card { background-color: #252320; }
+.bg-ink-surface { background-color: #2D2A26; }
+.border-ink-subtle { border-color: #383430; }
+
+.bg-parchment { background-color: #F0EBE1; }
+.bg-parchment-card { background-color: #E8E2D7; }
+.text-ink { color: #1C1B19; }
+.border-parchment-subtle { border-color: #D8D0C3; }
+
+.bg-copper { background-color: #B8834A; }
+.text-copper { color: #B8834A; }
+.border-copper { border-color: #B8834A; }
+
+.bg-rust { background-color: #A8432F; }
+.text-rust { color: #A8432F; }
+
+.bg-sage { background-color: #6B7A5E; }
+.text-sage { color: #6B7A5E; }
+
+/* Kitchen Ticket Docket Styling */
+.ticket-docket {
+  position: relative;
+  background-color: #252320;
+  border: 1px solid #383430;
+  border-radius: 4px;
+}
+
+/* Torn receipt dashed top edge */
+.ticket-docket::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    #383430 0px,
+    #383430 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+/* Punch Hole Decorator */
+.ticket-punch-hole {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #1C1B19;
+  border: 1px solid #383430;
+}
+
+/* Status Stamp Animation */
+@keyframes stamp-pop {
+  0% {
+    transform: scale(1.4) rotate(-5deg);
+    opacity: 0.2;
+  }
+  50% {
+    transform: scale(0.95) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.animate-stamp {
+  animation: stamp-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Customer Side Dotted Receipt Line */
+.dotted-receipt-line {
+  border-bottom: 1px dashed #B8834A;
+  opacity: 0.4;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #1C1B19;
+}
+::-webkit-scrollbar-thumb {
+  background: #383430;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #B8834A;
+}
