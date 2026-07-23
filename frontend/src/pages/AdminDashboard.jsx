@@ -51,9 +51,17 @@ export const AdminDashboard = () => {
   useEffect(() => {
     loadAllData();
 
+    // 5-second Background Failsafe Poller
+    const poller = setInterval(() => {
+      loadAllData();
+    }, 5000);
+
     if (socket) {
       socket.on('newOrder', (newOrder) => {
-        setOrders((prev) => [newOrder, ...prev]);
+        setOrders((prev) => {
+          if (prev.some(o => o._id === newOrder._id)) return prev;
+          return [newOrder, ...prev];
+        });
         playNewOrderNotification();
       });
 
@@ -70,6 +78,7 @@ export const AdminDashboard = () => {
     }
 
     return () => {
+      clearInterval(poller);
       if (socket) {
         socket.off('newOrder');
         socket.off('orderUpdated');

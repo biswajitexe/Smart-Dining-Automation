@@ -1,3 +1,5 @@
+import { socket } from './socket';
+
 const rawEnvApi = import.meta.env.VITE_API_URL;
 const BACKEND_BASE = (rawEnvApi && typeof rawEnvApi === 'string' && rawEnvApi.trim() !== '' && rawEnvApi !== 'undefined')
   ? rawEnvApi
@@ -119,6 +121,10 @@ export const api = {
       existing.unshift(created);
       localStorage.setItem('smart_dining_orders', JSON.stringify(existing));
     } catch (e) {}
+
+    if (socket && created) {
+      socket.emit('newOrder', created);
+    }
 
     return created;
   },

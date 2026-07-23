@@ -46,6 +46,11 @@ io.on('connection', (socket) => {
     socket.join(`order_${orderId}`);
   });
 
+  socket.on('newOrder', (data) => {
+    console.log(`New order broadcast emitted for Order #${data?._id}`);
+    socket.broadcast.emit('newOrder', data);
+  });
+
   socket.on('callWaiter', (data) => {
     console.log(`Waiter called for Table #${data?.tableNumber}`);
     io.emit('waiterAssistanceRequested', {

@@ -5,10 +5,10 @@ const SOCKET_URL = (rawEnvSocket && typeof rawEnvSocket === 'string' && rawEnvSo
   ? rawEnvSocket
   : 'https://smart-dining-automation-production.up.railway.app';
 
-
-
 export const socket = io(SOCKET_URL.replace(/\/$/, ''), {
   autoConnect: true,
-  transports: ['websocket', 'polling']
+  transports: ['polling', 'websocket'],
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000
 });
-
