@@ -7,5 +7,15 @@
     "backend": {
       "root": "backend"
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "type": "service",
+        "service": "backend",
+        "endpoint": "/api/$1"
+      }
+    }
+  ]
 }
