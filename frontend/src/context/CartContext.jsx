@@ -46,7 +46,7 @@ export const CartProvider = ({ children }) => {
 
   // Total amount calculation
   const totalAmount = cart.reduce(
-    (sum, item) => sum + item.menuItem.price * item.quantity,
+    (sum, item) => sum + (item.menuItem?.price || 0) * item.quantity,
     0
   );
 

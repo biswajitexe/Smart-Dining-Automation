@@ -580,7 +580,7 @@ const TicketDocket = ({ order, laneColor, onStatusUpdate }) => {
         </div>
 
         <span className="text-[10px] text-[#B8834A] font-bold">
-          #{order._id.substring(order._id.length - 5)}
+          #{String(order._id || '10001').slice(-5).toUpperCase()}
         </span>
       </div>
 
