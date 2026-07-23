@@ -1,5 +1,9 @@
-const BACKEND_BASE = import.meta.env.VITE_API_URL || 'https://smart-dining-automation-production.up.railway.app';
+const rawEnvApi = import.meta.env.VITE_API_URL;
+const BACKEND_BASE = (rawEnvApi && typeof rawEnvApi === 'string' && rawEnvApi.trim() !== '' && rawEnvApi !== 'undefined')
+  ? rawEnvApi
+  : 'https://smart-dining-automation-production.up.railway.app';
 const API_BASE_URL = `${BACKEND_BASE.replace(/\/$/, '')}/api`;
+
 
 
 
