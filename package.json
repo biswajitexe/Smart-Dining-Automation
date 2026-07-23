@@ -1,0 +1,11 @@
+{
+  "name": "smart-dining-automation",
+  "version": "1.0.0",
+  "description": "Smart Dining Automation System Root Package",
+  "scripts": {
+    "start": "cd backend && npm start",
+    "backend": "cd backend && npm start",
+    "frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm install && npm run build"
+  }
+}
