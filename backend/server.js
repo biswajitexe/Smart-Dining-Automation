@@ -69,12 +69,19 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Something went wrong on the server!' });
 });
 
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err);
+});
+
 const PORT = process.env.PORT || 5000;
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-}
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on 0.0.0.0:${PORT}`);
+});
 
 module.exports = app;
+
 
