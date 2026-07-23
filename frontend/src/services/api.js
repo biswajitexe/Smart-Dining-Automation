@@ -89,25 +89,120 @@ export const api = {
   deleteTable: (id, token) => request(`/tables/${id}`, 'DELETE', null, token).catch(err => ({ message: 'Deleted' })),
   regenerateQRs: (token) => request('/tables/regenerate-qrs', 'POST', null, token).catch(err => ({ message: 'QRs Regenerated' })),
 
-  // Orders
-  placeOrder: (orderData) => request('/orders', 'POST', orderData).catch(err => ({
-    _id: 'ord_' + Date.now(),
-    orderNumber: 'ORD-' + Math.floor(1000 + Math.random() * 9000),
-    tableNumber: orderData.tableNumber,
-    items: orderData.items,
-    status: 'placed',
-    createdAt: new Date().toISOString()
-  })),
-  getOrderById: (id) => request(`/orders/${id}`).catch(() => ({
-    _id: id,
-    orderNumber: 'ORD-8821',
-    tableNumber: 1,
-    status: 'preparing',
-    createdAt: new Date().toISOString()
-  })),
-  getAdminOrders: (status = '', token) => 
-    request(`/orders${status ? `?status=${status}` : ''}`, 'GET', null, token).catch(() => []),
-  updateOrderStatus: (id, status, token) => 
-    request(`/orders/${id}`, 'PUT', { status }, token).catch(err => ({ _id: id, status })),
-  getAnalytics: (token) => request('/orders/analytics', 'GET', null, token).catch(() => ({ totalRevenue: 1450, totalOrders: 5, activeTables: 3 })),
+  // Orders & KDS Sync Engine
+  placeOrder: async (orderData) => {
+    let created = null;
+    try {
+      created = await request('/orders', 'POST', orderData);
+    } catch (err) {
+      const totalCalc = (orderData.items || []).reduce((sum, i) => sum + 200 * i.quantity, 0);
+      created = {
+        _id: 'ord_' + Date.now(),
+        orderNumber: 'ORD-' + Math.floor(1000 + Math.random() * 9000),
+        table: { number: Number(orderData.tableNumber || 1) },
+        tableNumber: Number(orderData.tableNumber || 1),
+        items: (orderData.items || []).map(i => ({
+          menuItem: { _id: i.menuItem, name: i.name || 'Dish', price: 200 },
+          name: i.name || 'Dish',
+          quantity: i.quantity,
+          price: 200
+        })),
+        status: 'Placed',
+        totalAmount: totalCalc || 350,
+        createdAt: new Date().toISOString()
+      };
+    }
+
+    try {
+      const existingStr = localStorage.getItem('smart_dining_orders');
+      const existing = existingStr ? JSON.parse(existingStr) : [];
+      existing.unshift(created);
+      localStorage.setItem('smart_dining_orders', JSON.stringify(existing));
+    } catch (e) {}
+
+    return created;
+  },
+
+  getOrderById: async (id) => {
+    try {
+      const res = await request(`/orders/${id}`);
+      if (res) return res;
+    } catch (err) {}
+
+    try {
+      const localStr = localStorage.getItem('smart_dining_orders');
+      if (localStr) {
+        const localOrders = JSON.parse(localStr);
+        const found = localOrders.find(o => o._id === id);
+        if (found) return found;
+      }
+    } catch (e) {}
+
+    return {
+      _id: id || 'ord_default',
+      orderNumber: 'ORD-8821',
+      table: { number: 1 },
+      tableNumber: 1,
+      status: 'Placed',
+      totalAmount: 350,
+      items: [
+        { menuItem: { name: 'Spicy Paneer Tikka', price: 240 }, quantity: 1 },
+        { menuItem: { name: 'Fresh Mint Mojito', price: 110 }, quantity: 1 }
+      ],
+      createdAt: new Date().toISOString()
+    };
+  },
+
+  getAdminOrders: async (status = '', token) => {
+    let remoteOrders = [];
+    try {
+      const res = await request(`/orders${status ? `?status=${status}` : ''}`, 'GET', null, token);
+      if (Array.isArray(res)) remoteOrders = res;
+    } catch (err) {
+      remoteOrders = [];
+    }
+
+    try {
+      const localStr = localStorage.getItem('smart_dining_orders');
+      const localOrders = localStr ? JSON.parse(localStr) : [];
+      
+      const mergedMap = new Map();
+      remoteOrders.forEach(o => mergedMap.set(o._id, o));
+      localOrders.forEach(o => {
+        if (!mergedMap.has(o._id)) {
+          mergedMap.set(o._id, o);
+        }
+      });
+
+      let result = Array.from(mergedMap.values());
+      if (status) {
+        result = result.filter(o => o.status === status);
+      }
+      return result;
+    } catch (e) {
+      return remoteOrders;
+    }
+  },
+
+  updateOrderStatus: async (id, status, token) => {
+    let updated = null;
+    try {
+      updated = await request(`/orders/${id}`, 'PUT', { status }, token);
+    } catch (err) {
+      updated = { _id: id, status };
+    }
+
+    try {
+      const localStr = localStorage.getItem('smart_dining_orders');
+      if (localStr) {
+        let localOrders = JSON.parse(localStr);
+        localOrders = localOrders.map(o => o._id === id ? { ...o, status } : o);
+        localStorage.setItem('smart_dining_orders', JSON.stringify(localOrders));
+      }
+    } catch (e) {}
+
+    return updated;
+  },
+
+  getAnalytics: (token) => request('/orders/analytics', 'GET', null, token).catch(() => ({ totalSales: 1450, orderCount: 5, activeTables: 3 })),
 };
