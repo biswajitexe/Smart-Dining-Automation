@@ -1,5 +1,6 @@
-const BACKEND_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const BACKEND_BASE = import.meta.env.VITE_API_URL || 'https://smart-dining-automation-production.up.railway.app';
 const API_BASE_URL = `${BACKEND_BASE.replace(/\/$/, '')}/api`;
+
 
 
 // Helper for HTTP requests
