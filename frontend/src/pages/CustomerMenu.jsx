@@ -88,7 +88,11 @@ export const CustomerMenu = () => {
           };
           const createdOrder = await api.placeOrder(orderPayload);
           if (createdOrder?._id) {
-            await api.payOrder(createdOrder._id);
+            const paidOrder = await api.payOrder(createdOrder._id);
+            if (socket) {
+              socket.emit('newOrder', paidOrder || { ...createdOrder, paymentStatus: 'Paid' });
+              socket.emit('orderUpdated', paidOrder || { ...createdOrder, paymentStatus: 'Paid' });
+            }
           }
           setTimeout(() => {
             clearCart();

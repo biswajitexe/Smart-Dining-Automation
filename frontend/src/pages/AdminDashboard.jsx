@@ -49,26 +49,37 @@ export const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    loadAllData();
+    loadAllData(true);
 
-    // 5-second Background Failsafe Poller
+    // 5-second Background Silent Poller (No loading spinner)
     const poller = setInterval(() => {
-      loadAllData();
+      loadAllData(false);
     }, 5000);
 
     if (socket) {
       socket.on('newOrder', (newOrder) => {
         setOrders((prev) => {
-          if (prev.some(o => o._id === newOrder._id)) return prev;
+          const idx = prev.findIndex(o => o._id === newOrder._id);
+          if (idx > -1) {
+            const updated = [...prev];
+            updated[idx] = { ...updated[idx], ...newOrder };
+            return updated;
+          }
           return [newOrder, ...prev];
         });
         playNewOrderNotification();
       });
 
       socket.on('orderUpdated', (updatedOrder) => {
-        setOrders((prev) => 
-          prev.map((o) => (o._id === updatedOrder._id ? updatedOrder : o))
-        );
+        setOrders((prev) => {
+          const idx = prev.findIndex(o => o._id === updatedOrder._id);
+          if (idx > -1) {
+            const updated = [...prev];
+            updated[idx] = { ...updated[idx], ...updatedOrder };
+            return updated;
+          }
+          return [updatedOrder, ...prev];
+        });
       });
 
       socket.on('waiterAssistanceRequested', (data) => {
@@ -94,9 +105,9 @@ export const AdminDashboard = () => {
     }
   };
 
-  const loadAllData = async () => {
+  const loadAllData = async (isInitial = false) => {
     try {
-      setLoading(true);
+      if (isInitial) setLoading(true);
       const [fetchedOrders, fetchedMenu, fetchedTables, fetchedAnalytics] = await Promise.all([
         api.getAdminOrders('', token),
         api.getMenu(false),
@@ -104,14 +115,23 @@ export const AdminDashboard = () => {
         api.getAnalytics(token).catch(() => null)
       ]);
 
-      setOrders(fetchedOrders);
+      setOrders((prev) => {
+        const map = new Map();
+        prev.forEach(o => map.set(o._id, o));
+        (fetchedOrders || []).forEach(o => {
+          const existing = map.get(o._id);
+          map.set(o._id, existing ? { ...existing, ...o } : o);
+        });
+        return Array.from(map.values()).sort((a, b) => new Date(b.createdAt || Date.now()) - new Date(a.createdAt || Date.now()));
+      });
+
       setMenuItems(fetchedMenu);
       setTables(fetchedTables);
       setAnalytics(fetchedAnalytics);
     } catch (err) {
       console.error('Failed to load KDS data:', err);
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   };
 
