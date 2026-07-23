@@ -25,9 +25,24 @@ router.get('/analytics', async (req, res) => {
   let orderCount = memoryOrders.length;
   let categorySales = { 'Starters': 0, 'Main Course': 0, 'Beverages': 0, 'Desserts': 0 };
   let popularDishes = {};
+  let ratings = [];
+  let feedbacks = [];
 
   memoryOrders.forEach(order => {
     totalSales += order.totalAmount || 0;
+    if (order.rating) {
+      ratings.push(order.rating);
+      if (order.comment) {
+        feedbacks.push({
+          id: order._id,
+          rating: order.rating,
+          comment: order.comment,
+          tableNumber: order.table?.number || order.tableNumber || 1,
+          createdAt: order.createdAt || new Date().toISOString()
+        });
+      }
+    }
+
     (order.items || []).forEach(item => {
       if (item.menuItem) {
         const cat = item.menuItem.category || 'Starters';
@@ -45,7 +60,19 @@ router.get('/analytics', async (req, res) => {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  res.json({ totalSales, orderCount, categorySales, popularDishes: sortedPopular });
+  const avgRating = ratings.length > 0
+    ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)
+    : '4.9';
+
+  res.json({ 
+    totalSales, 
+    orderCount, 
+    categorySales, 
+    popularDishes: sortedPopular,
+    avgRating: Number(avgRating),
+    totalReviews: ratings.length,
+    recentFeedbacks: feedbacks.slice(0, 10)
+  });
 });
 
 // @route   GET api/orders/:id
@@ -69,13 +96,10 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ message: 'Please provide table number and items' });
   }
 
-  // Fetch menu fallback items if needed
-  const menuRoutes = require('./menu');
   let totalAmount = 0;
 
   const populatedItems = items.map(i => {
-    // calculate dummy price if needed
-    const price = 200;
+    const price = i.price || 200;
     totalAmount += price * i.quantity;
     return {
       menuItem: {
@@ -84,6 +108,8 @@ router.post('/', async (req, res) => {
         price: price,
         category: 'Starters'
       },
+      name: i.name || 'Delicious Dish',
+      price: price,
       quantity: i.quantity,
       notes: i.notes || ''
     };
@@ -92,15 +118,16 @@ router.post('/', async (req, res) => {
   const newOrder = {
     _id: 'ord_' + Date.now(),
     table: { number: Number(tableNumber) },
+    tableNumber: Number(tableNumber),
     items: populatedItems,
     status: 'Placed',
+    paymentStatus: 'Pending',
     totalAmount: totalAmount,
     createdAt: new Date().toISOString()
   };
 
   memoryOrders.unshift(newOrder);
 
-  // Notify socket
   const io = req.app.get('socketio');
   if (io) {
     io.emit('newOrder', newOrder);
@@ -109,14 +136,48 @@ router.post('/', async (req, res) => {
   res.status(201).json(newOrder);
 });
 
+// @route   POST api/orders/:id/pay
+router.post('/:id/pay', async (req, res) => {
+  const idx = memoryOrders.findIndex(o => o._id === req.params.id);
+  if (idx > -1) {
+    memoryOrders[idx].paymentStatus = 'Paid';
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`order_${memoryOrders[idx]._id}`).emit('orderStatusUpdated', memoryOrders[idx]);
+      io.emit('orderUpdated', memoryOrders[idx]);
+    }
+    return res.json(memoryOrders[idx]);
+  }
+
+  res.status(404).json({ message: 'Order not found' });
+});
+
+// @route   POST api/orders/:id/feedback
+router.post('/:id/feedback', async (req, res) => {
+  const { rating, comment } = req.body;
+  const idx = memoryOrders.findIndex(o => o._id === req.params.id);
+  if (idx > -1) {
+    memoryOrders[idx].rating = Number(rating) || 5;
+    memoryOrders[idx].comment = comment || '';
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`order_${memoryOrders[idx]._id}`).emit('orderStatusUpdated', memoryOrders[idx]);
+      io.emit('orderUpdated', memoryOrders[idx]);
+    }
+    return res.json(memoryOrders[idx]);
+  }
+
+  res.status(404).json({ message: 'Order not found' });
+});
+
 // @route   PUT api/orders/:id
 router.put('/:id', async (req, res) => {
-  const { status } = req.body;
-  if (!status) return res.status(400).json({ message: 'Please provide status' });
+  const { status, paymentStatus } = req.body;
 
   const idx = memoryOrders.findIndex(o => o._id === req.params.id);
   if (idx > -1) {
-    memoryOrders[idx].status = status;
+    if (status) memoryOrders[idx].status = status;
+    if (paymentStatus) memoryOrders[idx].paymentStatus = paymentStatus;
     const io = req.app.get('socketio');
     if (io) {
       io.to(`order_${memoryOrders[idx]._id}`).emit('orderStatusUpdated', memoryOrders[idx]);

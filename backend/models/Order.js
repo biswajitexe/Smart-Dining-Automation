@@ -3,8 +3,15 @@ const mongoose = require('mongoose');
 const OrderItemSchema = new mongoose.Schema({
   menuItem: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'MenuItem',
-    required: true
+    ref: 'MenuItem'
+  },
+  name: {
+    type: String,
+    default: 'Dish'
+  },
+  price: {
+    type: Number,
+    default: 0
   },
   quantity: {
     type: Number,
@@ -20,8 +27,11 @@ const OrderItemSchema = new mongoose.Schema({
 const OrderSchema = new mongoose.Schema({
   table: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Table',
-    required: true
+    ref: 'Table'
+  },
+  tableNumber: {
+    type: Number,
+    default: 1
   },
   items: [OrderItemSchema],
   status: {
@@ -29,10 +39,25 @@ const OrderSchema = new mongoose.Schema({
     enum: ['Placed', 'Preparing', 'Ready', 'Served'],
     default: 'Placed'
   },
+  paymentStatus: {
+    type: String,
+    enum: ['Pending', 'Paid'],
+    default: 'Pending'
+  },
   totalAmount: {
     type: Number,
     required: true,
-    min: 0
+    default: 0
+  },
+  rating: {
+    type: Number,
+    min: 1,
+    max: 5,
+    default: null
+  },
+  comment: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true

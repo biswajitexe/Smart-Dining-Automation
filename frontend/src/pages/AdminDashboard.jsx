@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Utensils, QrCode, TrendingUp, Plus, 
   Clock, ChefHat, Sparkles, Trash2, Edit3, 
   Printer, RefreshCw, CheckCircle2, DollarSign,
-  ShoppingBag, Stamp, CheckSquare
+  ShoppingBag, Stamp, CheckSquare, Bell, Star, X
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -19,6 +19,9 @@ export const AdminDashboard = () => {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Waiter Assistance Real-Time Alerts
+  const [waiterAlerts, setWaiterAlerts] = useState([]);
+
   // Modals & Forms
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
   const [editingMenuItem, setEditingMenuItem] = useState(null);
@@ -29,7 +32,7 @@ export const AdminDashboard = () => {
   const [newTableNumber, setNewTableNumber] = useState('');
   const [selectedQRTable, setSelectedQRTable] = useState(null);
 
-  // Audio alert trigger for incoming orders
+  // Audio alert trigger for incoming orders / waiter calls
   const playNewOrderNotification = () => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -39,9 +42,9 @@ export const AdminDashboard = () => {
       gain.connect(audioCtx.destination);
       osc.type = 'sine';
       osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
       osc.start();
-      osc.stop(audioCtx.currentTime + 0.3);
+      osc.stop(audioCtx.currentTime + 0.4);
     } catch (e) {}
   };
 
@@ -59,15 +62,28 @@ export const AdminDashboard = () => {
           prev.map((o) => (o._id === updatedOrder._id ? updatedOrder : o))
         );
       });
+
+      socket.on('waiterAssistanceRequested', (data) => {
+        setWaiterAlerts((prev) => [data, ...prev]);
+        playNewOrderNotification();
+      });
     }
 
     return () => {
       if (socket) {
         socket.off('newOrder');
         socket.off('orderUpdated');
+        socket.off('waiterAssistanceRequested');
       }
     };
   }, [token]);
+
+  const dismissWaiterAlert = (tableNumber) => {
+    setWaiterAlerts((prev) => prev.filter((a) => a.tableNumber !== tableNumber));
+    if (socket) {
+      socket.emit('dismissWaiterAlert', { tableNumber });
+    }
+  };
 
   const loadAllData = async () => {
     try {
@@ -100,7 +116,7 @@ export const AdminDashboard = () => {
     }
   };
 
-  // Menu Management
+  // Menu Management & Smart Inventory Toggle
   const handleOpenMenuModal = (item = null) => {
     if (item) {
       setEditingMenuItem(item);
@@ -196,6 +212,29 @@ export const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-[#1C1B19] text-[#F0EBE1] p-4 sm:p-6 font-sans">
       
+      {/* Real-time Waiter Assistance Alert Banners */}
+      {waiterAlerts.length > 0 && (
+        <div className="space-y-2 mb-6">
+          {waiterAlerts.map((alert, idx) => (
+            <div 
+              key={idx}
+              className="bg-[#B8834A] text-[#1C1B19] p-3 rounded-sm font-mono text-xs flex justify-between items-center shadow-lg border-2 border-[#F0EBE1] animate-bounce"
+            >
+              <div className="flex items-center gap-2 font-black text-sm">
+                <Bell className="w-5 h-5 fill-[#1C1B19]" />
+                <span>⚠️ TABLE #{alert.tableNumber} NEEDS ASSISTANCE AT TABLE!</span>
+              </div>
+              <button
+                onClick={() => dismissWaiterAlert(alert.tableNumber)}
+                className="px-3 py-1 bg-[#1C1B19] text-[#F0EBE1] font-bold text-[10px] uppercase rounded-xs hover:bg-[#383430]"
+              >
+                ACKNOWLEDGE & DISMISS ✓
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Top KDS Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#383430] pb-6 mb-6">
         <div>
@@ -254,7 +293,7 @@ export const AdminDashboard = () => {
             }`}
           >
             <TrendingUp className="w-4 h-4" />
-            REVENUE
+            REVENUE & REVIEWS
           </button>
         </div>
       </div>
@@ -421,11 +460,11 @@ export const AdminDashboard = () => {
         </div>
       )}
 
-      {/* TAB 3: MENU MANAGEMENT */}
+      {/* TAB 3: MENU MANAGEMENT & SMART INVENTORY */}
       {activeTab === 'menu' && (
         <div>
           <div className="flex justify-between items-center mb-6">
-            <h2 className="font-serif font-bold text-xl text-[#F0EBE1]">Dishes & Catalog</h2>
+            <h2 className="font-serif font-bold text-xl text-[#F0EBE1]">Dishes & Smart Inventory</h2>
             <button
               onClick={() => handleOpenMenuModal(null)}
               className="px-4 py-2 rounded-sm bg-[#B8834A] text-[#1C1B19] font-mono text-xs font-bold flex items-center gap-1.5"
@@ -436,7 +475,7 @@ export const AdminDashboard = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 font-sans">
             {menuItems.map((item) => (
-              <div key={item._id} className="bg-[#252320] p-4 rounded-sm flex gap-4 border border-[#383430]">
+              <div key={item._id} className="bg-[#252320] p-4 rounded-sm flex gap-4 border border-[#383430] relative">
                 <div className="w-20 h-20 bg-[#1C1B19] overflow-hidden shrink-0 rounded-sm">
                   <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                 </div>
@@ -452,11 +491,13 @@ export const AdminDashboard = () => {
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#383430] font-mono text-[10px]">
                     <button
                       onClick={() => handleToggleAvailability(item)}
-                      className={`font-bold px-2 py-0.5 rounded-sm ${
-                        item.availability ? 'bg-[#6B7A5E]/20 text-[#6B7A5E]' : 'bg-[#A8432F]/20 text-[#A8432F]'
+                      className={`font-bold px-2 py-1 rounded-xs uppercase tracking-wider transition ${
+                        item.availability 
+                          ? 'bg-[#6B7A5E]/20 text-[#6B7A5E] hover:bg-[#6B7A5E]/40 border border-[#6B7A5E]' 
+                          : 'bg-[#A8432F]/20 text-[#A8432F] hover:bg-[#A8432F]/40 border border-[#A8432F]'
                       }`}
                     >
-                      {item.availability ? 'AVAILABLE' : 'UNAVAILABLE'}
+                      {item.availability ? 'AVAILABLE ✓' : 'MARK AS SOLD OUT 🚫'}
                     </button>
 
                     <div className="flex items-center gap-2">
@@ -475,10 +516,10 @@ export const AdminDashboard = () => {
         </div>
       )}
 
-      {/* TAB 4: REVENUE ANALYTICS */}
+      {/* TAB 4: REVENUE ANALYTICS & REVIEWS */}
       {activeTab === 'analytics' && analytics && (
         <div className="space-y-6 font-mono">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             <div className="bg-[#252320] p-6 rounded-sm border border-[#B8834A]/40">
               <p className="text-[#B8834A] text-xs font-bold uppercase">TOTAL SALES REVENUE</p>
               <h3 className="font-serif text-3xl font-black text-[#F0EBE1] mt-2">₹{analytics.totalSales}</h3>
@@ -487,7 +528,47 @@ export const AdminDashboard = () => {
               <p className="text-[#F0EBE1]/60 text-xs font-bold uppercase">TOTAL DOCKETS PROCESSED</p>
               <h3 className="font-serif text-3xl font-black text-[#F0EBE1] mt-2">{analytics.orderCount}</h3>
             </div>
+            <div className="bg-[#252320] p-6 rounded-sm border border-[#383430]">
+              <p className="text-[#F0EBE1]/60 text-xs font-bold uppercase flex items-center gap-1">
+                <Star className="w-3.5 h-3.5 text-[#B8834A] fill-[#B8834A]" /> AVERAGE DINER RATING
+              </p>
+              <h3 className="font-serif text-3xl font-black text-[#F0EBE1] mt-2">{analytics.avgRating || 4.8} / 5.0</h3>
+            </div>
           </div>
+
+          {/* Customer Reviews & Feedback Section */}
+          <div className="bg-[#252320] p-6 rounded-sm border border-[#383430]">
+            <h3 className="font-serif font-bold text-lg text-[#F0EBE1] mb-4 flex items-center gap-2">
+              <Star className="w-5 h-5 text-[#B8834A] fill-[#B8834A]" />
+              Recent Customer Ratings & Feedback
+            </h3>
+
+            <div className="space-y-3">
+              {(analytics.recentFeedbacks || []).length > 0 ? (
+                analytics.recentFeedbacks.map((fb, i) => (
+                  <div key={i} className="p-4 bg-[#1C1B19] rounded-sm border border-[#383430] flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-bold text-[#B8834A]">TABLE #{fb.tableNumber}</span>
+                        <div className="flex text-[#B8834A]">
+                          {[...Array(fb.rating)].map((_, s) => (
+                            <Star key={s} className="w-3 h-3 fill-[#B8834A]" />
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-xs text-[#F0EBE1]/80 font-sans italic">"{fb.comment || 'Great food and fast table service!'}"</p>
+                    </div>
+                    <span className="text-[10px] text-[#F0EBE1]/40">{new Date(fb.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6 text-xs text-[#F0EBE1]/40 border border-dashed border-[#383430]">
+                  NO FEEDBACK REVIEWS RECORDED YET
+                </div>
+              )}
+            </div>
+          </div>
+
         </div>
       )}
 
@@ -575,18 +656,25 @@ const TicketDocket = ({ order, laneColor, onStatusUpdate }) => {
         <div className="flex items-center gap-2">
           <div className="ticket-punch-hole"></div>
           <span className="font-serif font-black text-base text-[#F0EBE1]">
-            TBL #{order.table?.number || 1}
+            TBL #{order.table?.number || order.tableNumber || 1}
           </span>
         </div>
 
-        <span className="text-[10px] text-[#B8834A] font-bold">
-          #{String(order._id || '10001').slice(-5).toUpperCase()}
-        </span>
+        <div className="flex items-center gap-2">
+          {order.paymentStatus === 'Paid' && (
+            <span className="text-[9px] font-extrabold bg-[#6B7A5E] text-[#F0EBE1] px-1.5 py-0.5 rounded-xs uppercase tracking-wider">
+              PAID ✓
+            </span>
+          )}
+          <span className="text-[10px] text-[#B8834A] font-bold">
+            #{String(order._id || '10001').slice(-5).toUpperCase()}
+          </span>
+        </div>
       </div>
 
       {/* Ticket Items Checklist */}
       <div className="space-y-2 mb-4">
-        {order.items.map((item, idx) => (
+        {(order.items || []).map((item, idx) => (
           <div key={idx} className="flex justify-between items-center text-xs">
             <div className="flex items-center gap-2">
               <span className="w-4 h-4 border border-[#B8834A] rounded-xs flex items-center justify-center text-[10px] font-bold text-[#B8834A]">
@@ -597,7 +685,7 @@ const TicketDocket = ({ order, laneColor, onStatusUpdate }) => {
               </span>
             </div>
             <span className="text-[#F0EBE1]/60 text-[11px]">
-              ₹{(item.menuItem?.price || 200) * item.quantity}
+              ₹{(item.menuItem?.price || item.price || 200) * item.quantity}
             </span>
           </div>
         ))}

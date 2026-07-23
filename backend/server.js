@@ -46,6 +46,18 @@ io.on('connection', (socket) => {
     socket.join(`order_${orderId}`);
   });
 
+  socket.on('callWaiter', (data) => {
+    console.log(`Waiter called for Table #${data?.tableNumber}`);
+    io.emit('waiterAssistanceRequested', {
+      tableNumber: data?.tableNumber || 1,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  socket.on('dismissWaiterAlert', (data) => {
+    io.emit('waiterAssistanceDismissed', data);
+  });
+
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
   });
