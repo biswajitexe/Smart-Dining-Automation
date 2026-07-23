@@ -1,27 +1,32 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, User, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Lock, User, ShieldCheck, ArrowRight, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Login = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('admin');
   const { login, loading, error } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!username || !password) return;
+    if (e) e.preventDefault();
+    const userToTry = username || 'admin';
+    const passToTry = password || 'admin';
 
-    const success = await login(username, password);
+    const success = await login(userToTry, passToTry);
     if (success) {
       navigate('/admin/dashboard');
     }
   };
 
-  const handleDemoFill = () => {
+  const handleDemoInstantLogin = async () => {
     setUsername('admin');
-    setPassword('adminpassword');
+    setPassword('admin');
+    const success = await login('admin', 'admin');
+    if (success) {
+      navigate('/admin/dashboard');
+    }
   };
 
   return (
@@ -59,8 +64,7 @@ export const Login = () => {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter username"
-                required
+                placeholder="admin"
                 className="w-full bg-[#1C1B19] border border-[#383430] rounded-sm py-2.5 pl-10 pr-4 text-xs font-mono text-[#F0EBE1] placeholder-[#F0EBE1]/30 focus:outline-none focus:border-[#B8834A]"
               />
             </div>
@@ -76,8 +80,7 @@ export const Login = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                required
+                placeholder="admin"
                 className="w-full bg-[#1C1B19] border border-[#383430] rounded-sm py-2.5 pl-10 pr-4 text-xs font-mono text-[#F0EBE1] placeholder-[#F0EBE1]/30 focus:outline-none focus:border-[#B8834A]"
               />
             </div>
@@ -99,14 +102,19 @@ export const Login = () => {
           </button>
         </form>
 
-        {/* Demo Helper */}
-        <div className="mt-8 pt-6 border-t border-[#383430] text-center font-mono">
-          <p className="text-[10px] text-[#F0EBE1]/50 mb-2 uppercase">DEFAULT SEEDED CREDENTIALS</p>
+        {/* 1-Click Instant Demo Login */}
+        <div className="mt-6 pt-6 border-t border-[#383430] text-center font-mono">
+          <p className="text-[10px] text-[#F0EBE1]/50 mb-3 uppercase tracking-wider">
+            FOR DEMO EVALUATION
+          </p>
           <button
-            onClick={handleDemoFill}
-            className="text-xs text-[#B8834A] hover:underline font-bold"
+            type="button"
+            onClick={handleDemoInstantLogin}
+            disabled={loading}
+            className="w-full py-2.5 px-4 rounded-sm bg-[#1C1B19] hover:bg-[#383430] border border-[#B8834A] text-[#B8834A] font-mono font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2"
           >
-            AUTO-FILL ADMIN (`admin` / `adminpassword`)
+            <Zap className="w-4 h-4 text-[#B8834A] fill-[#B8834A]" />
+            ⚡ ONE-CLICK DEMO LOGIN (ADMIN)
           </button>
         </div>
 
