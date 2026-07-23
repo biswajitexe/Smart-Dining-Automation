@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const MenuItem = require('../models/MenuItem');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -13,48 +14,40 @@ let memoryMenuItems = [
 ];
 
 // @route   GET api/menu
-// @desc    Get all menu items
-// @access  Public
 router.get('/', async (req, res) => {
-  try {
-    const filter = {};
-    if (req.query.availableOnly === 'true') {
-      filter.availability = true;
-    }
-    const menuItems = await MenuItem.find(filter).sort({ category: 1, name: 1 });
-    res.json(menuItems);
-  } catch (error) {
-    console.warn('MongoDB disconnected, serving in-memory menu items fallback');
-    let items = memoryMenuItems;
-    if (req.query.availableOnly === 'true') {
-      items = items.filter(i => i.availability);
-    }
-    res.json(items);
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const filter = {};
+      if (req.query.availableOnly === 'true') {
+        filter.availability = true;
+      }
+      const menuItems = await MenuItem.find(filter).sort({ category: 1, name: 1 });
+      if (menuItems && menuItems.length > 0) return res.json(menuItems);
+    } catch (error) {}
   }
+
+  let items = memoryMenuItems;
+  if (req.query.availableOnly === 'true') {
+    items = items.filter(i => i.availability);
+  }
+  res.json(items);
 });
 
 // @route   GET api/menu/:id
-// @desc    Get single menu item
-// @access  Public
 router.get('/:id', async (req, res) => {
-  try {
-    const menuItem = await MenuItem.findById(req.params.id);
-    if (!menuItem) {
-      const fallback = memoryMenuItems.find(i => i._id === req.params.id);
-      if (fallback) return res.json(fallback);
-      return res.status(404).json({ message: 'Menu item not found' });
-    }
-    res.json(menuItem);
-  } catch (error) {
-    const fallback = memoryMenuItems.find(i => i._id === req.params.id);
-    if (fallback) return res.json(fallback);
-    res.status(404).json({ message: 'Menu item not found' });
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const menuItem = await MenuItem.findById(req.params.id);
+      if (menuItem) return res.json(menuItem);
+    } catch (error) {}
   }
+
+  const fallback = memoryMenuItems.find(i => i._id === req.params.id);
+  if (fallback) return res.json(fallback);
+  res.status(404).json({ message: 'Menu item not found' });
 });
 
 // @route   POST api/menu
-// @desc    Create menu item
-// @access  Private (Admin/Staff)
 router.post('/', async (req, res) => {
   const { name, price, category, image, description, availability } = req.body;
   const newItem = {
@@ -67,50 +60,34 @@ router.post('/', async (req, res) => {
     availability: availability !== undefined ? availability : true
   };
 
-  try {
-    const menuItem = await MenuItem.create(newItem);
-    res.status(201).json(menuItem);
-  } catch (error) {
-    memoryMenuItems.push(newItem);
-    res.status(201).json(newItem);
+  memoryMenuItems.unshift(newItem);
+
+  if (mongoose.connection.readyState === 1) {
+    try {
+      await MenuItem.create(newItem);
+    } catch (error) {}
   }
+
+  res.status(201).json(newItem);
 });
 
 // @route   PUT api/menu/:id
-// @desc    Update menu item
-// @access  Private (Admin/Staff)
 router.put('/:id', async (req, res) => {
-  try {
-    let menuItem = await MenuItem.findById(req.params.id);
-    if (menuItem) {
-      Object.assign(menuItem, req.body);
-      const updated = await menuItem.save();
-      return res.json(updated);
-    }
-  } catch (err) {
-    // fallback
-  }
-
   const idx = memoryMenuItems.findIndex(i => i._id === req.params.id);
   if (idx > -1) {
     memoryMenuItems[idx] = { ...memoryMenuItems[idx], ...req.body };
+    const io = req.app.get('socketio');
+    if (io) {
+      io.emit('menuUpdated', memoryMenuItems[idx]);
+    }
     return res.json(memoryMenuItems[idx]);
   }
+
   res.status(404).json({ message: 'Menu item not found' });
 });
 
 // @route   DELETE api/menu/:id
-// @desc    Delete menu item
-// @access  Private (Admin only)
 router.delete('/:id', async (req, res) => {
-  try {
-    let menuItem = await MenuItem.findById(req.params.id);
-    if (menuItem) {
-      await menuItem.deleteOne();
-      return res.json({ message: 'Menu item removed' });
-    }
-  } catch (err) {}
-
   memoryMenuItems = memoryMenuItems.filter(i => i._id !== req.params.id);
   res.json({ message: 'Menu item removed' });
 });

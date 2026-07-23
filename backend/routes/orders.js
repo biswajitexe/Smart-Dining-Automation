@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const Table = require('../models/Table');
 const MenuItem = require('../models/MenuItem');
@@ -8,15 +9,16 @@ let memoryOrders = [];
 
 // @route   GET api/orders
 router.get('/', async (req, res) => {
-  try {
-    const orders = await Order.find({})
-      .populate('table')
-      .populate('items.menuItem')
-      .sort({ createdAt: -1 });
-    return res.json(orders);
-  } catch (error) {
-    res.json(memoryOrders);
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const orders = await Order.find({})
+        .populate('table')
+        .populate('items.menuItem')
+        .sort({ createdAt: -1 });
+      if (orders && orders.length > 0) return res.json(orders);
+    } catch (error) {}
   }
+  res.json(memoryOrders);
 });
 
 // @route   GET api/orders/analytics
@@ -77,12 +79,14 @@ router.get('/analytics', async (req, res) => {
 
 // @route   GET api/orders/:id
 router.get('/:id', async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.id)
-      .populate('table')
-      .populate('items.menuItem');
-    if (order) return res.json(order);
-  } catch (error) {}
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const order = await Order.findById(req.params.id)
+        .populate('table')
+        .populate('items.menuItem');
+      if (order) return res.json(order);
+    } catch (error) {}
+  }
 
   const found = memoryOrders.find(o => o._id === req.params.id);
   if (found) return res.json(found);
@@ -127,6 +131,16 @@ router.post('/', async (req, res) => {
   };
 
   memoryOrders.unshift(newOrder);
+
+  if (mongoose.connection.readyState === 1) {
+    try {
+      await Order.create({
+        tableNumber: Number(tableNumber),
+        items: items.map(i => ({ menuItem: i.menuItem, quantity: i.quantity, notes: i.notes })),
+        totalAmount
+      });
+    } catch (e) {}
+  }
 
   const io = req.app.get('socketio');
   if (io) {
